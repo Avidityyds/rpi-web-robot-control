@@ -1,0 +1,16 @@
+[Unit]
+Description=Node.js WebSocket to MQTT Bridge
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bee
+WorkingDirectory=/home/bee/ws-mqtt-bridge
+ExecStart=/usr/bin/node /home/bee/ws-mqtt-bridge/server.js
+Environment=NODE_ENV=production
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=Simple HTTP server for ~/html
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bee
+WorkingDirectory=/home/bee/html
+# 以 python3 內建 http.server 提供 ~/html，對外綁 0.0.0.0:8000
+ExecStart=/usr/bin/python3 -m http.server 8000 --bind 0.0.0.0 --directory /home/bee/html
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
