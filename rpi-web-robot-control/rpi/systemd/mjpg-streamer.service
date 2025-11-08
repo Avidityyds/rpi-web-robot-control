@@ -1,0 +1,15 @@
+[Unit]
+Description=MJPG-Streamer Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=bee
+ExecStart=/usr/local/bin/mjpg_streamer \
+-i "/usr/local/lib/mjpg-streamer/input_uvc.so -d /dev/video0 -r 640x480 -f 15" \
+-o "/usr/local/lib/mjpg-streamer/output_http.so -p 8080 -w /usr/local/www"
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
