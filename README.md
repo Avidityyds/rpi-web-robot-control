@@ -59,7 +59,7 @@ rpi-web-robot-control/
 │   ├── html/
 │   │   └── mqtt_test.html          # 前端控制頁（搖桿 + 影像 + 吸塵控制）
 │   ├── python/
-│   │   └── RobotCtrl_RPi.py    # 透過 MQTT 接收指令並經 Serial 發送給 Arduino
+│   │   └── RobotCtrl_RPi.py        # 透過 MQTT 接收指令並經 Serial 發送給 Arduino
 │   └── systemd/                    
 │       ├── ws-mqtt-bridge.service  # 開機自啟動 Node.js 橋接服務
 │       ├── mjpg-streamer.service   # 開機自啟動影像串流服務
