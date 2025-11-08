@@ -77,4 +77,4 @@ rpi-web-robot-control/
 ---
 ## Robot Image 
 
-![Robot Photo](images/robot.jpg1)
+![Robot Photo](images/robot1.jpg)
