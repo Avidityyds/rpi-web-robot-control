@@ -57,7 +57,8 @@ rpi-web-robot-control/
 │   │   ├── package.json            # Node.js 專案設定與依賴套件清單
 │   │   └── bridge.js               # Bridge 主程式，將 WebSocket 與 MQTT 雙向轉換
 │   ├── html/
-│   │   └── mqtt_test.html          # 前端控制頁（搖桿 + 影像 + 吸塵控制）
+│   │   ├── mqtt_test.html          # 第一版前端控制網頁（搖桿 + 影像 + 吸塵控制）
+│   │   └── Ctrl.html               # 第二版前端控制網頁（修改 UI）
 │   ├── python/
 │   │   └── RobotCtrl_RPi.py        # 透過 MQTT 接收指令並經 Serial 發送給 Arduino
 │   └── systemd/                    
@@ -69,7 +70,8 @@ rpi-web-robot-control/
 │   └── RobotCtrl_Arduino.ino       # L298N + 繼電器控制程式
 │    
 │── images/
-│   └── robot.jpg                   # 機器人照片
+│   ├── robot.jpg                   # 機器人照片
+│   └── Ctrl.png                    # 第二版前端控制網頁畫面
 │       
 ├── README.md                       # 專案說明文件（本檔案）
 └── LICENSE                         # MIT 授權
@@ -77,4 +79,9 @@ rpi-web-robot-control/
 ---
 ## Robot Image 
 
-![Robot Photo](images/robot1.jpg)
+<table>
+  <tr>
+    <td><img src="images/robot1.jpg" alt="Robot Photo" width="400"/></td>
+    <td><img src="images/Ctrl.png" alt="Control Page" width="400"/></td>
+  </tr>
+</table>
