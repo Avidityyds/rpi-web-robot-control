@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>RPi Command Center</title>
+  <style>
+    /* --- 核心變數設定 --- */
+    :root {
+      --bg-color: #050b14;
+      --panel-bg: rgba(16, 24, 39, 0.7);
+      --panel-border: 1px solid rgba(0, 243, 255, 0.2);
+      --primary: #00f3ff;
+      --primary-dim: rgba(0, 243, 255, 0.1);
+      --danger: #ff0055;
+      --success: #00ff9d;
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      
+      --joy-size: 320px;
+      --joy-pad: 30px;
+      --font-tech: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+      margin: 0;
+      padding: 20px;
+      background-color: var(--bg-color);
+      background-image: 
+        linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      color: var(--text-main);
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      /* 防止手機上長按選取文字 */
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* --- 通用排版 --- */
+    h1, h2 { margin: 0 0 16px 0; font-family: var(--font-tech); text-transform: uppercase; letter-spacing: 1px; }
+    h1 { color: var(--primary); text-shadow: 0 0 10px var(--primary-dim); font-size: 24px; border-bottom: 2px solid var(--primary); padding-bottom: 10px; display: inline-block; }
+    h2 { font-size: 16px; color: var(--text-muted); border-left: 3px solid var(--primary); padding-left: 10px; }
+
+    .grid-container {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 900px) {
+      .grid-container { grid-template-columns: 1fr; }
+    }
+
+    /* --- 卡片面板 --- */
+    .card {
+      background: var(--panel-bg);
+      border: var(--panel-border);
+      border-radius: 8px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before { content:''; position:absolute; top:0; left:0; width:10px; height:10px; border-top: 2px solid var(--primary); border-left: 2px solid var(--primary); }
+    .card::after { content:''; position:absolute; bottom:0; right:0; width:10px; height:10px; border-bottom: 2px solid var(--primary); border-right: 2px solid var(--primary); }
+
+    /* --- 輸入框與按鈕 --- */
+    label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px; font-family: var(--font-tech); }
+    
+    input {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid #334155;
+      color: var(--primary);
+      padding: 8px;
+      border-radius: 4px;
+      font-family: var(--font-tech);
+      width: 100%;
+      outline: none;
+      transition: 0.3s;
+    }
+    input:focus { border-color: var(--primary); box-shadow: 0 0 8px var(--primary-dim); }
+
+    button {
+      background: rgba(0, 243, 255, 0.1);
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: var(--font-tech);
+      font-weight: bold;
+      text-transform: uppercase;
+      transition: 0.2s;
+      white-space: nowrap;
+      /* 防止按鈕在手機上被放大 */
+      touch-action: manipulation;
+    }
+    button:hover:not(:disabled) { background: var(--primary); color: #000; box-shadow: 0 0 15px var(--primary); }
+    button:disabled { border-color: #475569; color: #475569; background: transparent; cursor: not-allowed; }
+    
+    button.danger { border-color: var(--danger); color: var(--danger); background: rgba(255, 0, 85, 0.1); }
+    button.danger:hover { background: var(--danger); color: #fff; box-shadow: 0 0 15px var(--danger); }
+    button.toggle-on { background: var(--success); color: #000; border-color: var(--success); box-shadow: 0 0 10px var(--success); }
+
+    /* --- 影像串流 --- */
+    #videoBox {
+      width: 100%;
+      aspect-ratio: 16 / 9; 
+      background: #000;
+      border: 1px solid #333;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .video-msg {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      color: #666; width: 100%; text-align: center;
+      z-index: 1; pointer-events: none;
+    }
+
+    #videoBox img { 
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      object-fit: cover; display: block; z-index: 2; 
+    }
+    
+    .hud-overlay { position: absolute; top: 10px; left: 10px; right: 10px; bottom: 10px; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); z-index: 10; }
+    .rec-badge { position: absolute; top: 16px; right: 16px; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; display: flex; align-items: center; font-size: 12px; color: #fff; z-index: 10; }
+    .rec-dot { width: 8px; height: 8px; background: var(--danger); border-radius: 50%; margin-right: 6px; animation: blink 1s infinite; }
+    @keyframes blink { 50% { opacity: 0.3; } }
+    .cam-info { position:absolute; bottom:10px; left:10px; color:var(--primary); font-family:var(--font-tech); font-size:12px; text-shadow:0 0 4px #000; z-index: 10; }
+
+    /* --- 搖桿區域 --- */
+    .joy-container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    #joyWrap {
+      width: var(--joy-size);
+      height: var(--joy-size);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16,24,39,1) 0%, rgba(5,11,20,1) 100%);
+      border: 2px solid #334155;
+      box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 15px rgba(0, 243, 255, 0.1);
+      position: relative;
+      display: flex; justify-content: center; align-items: center;
+    }
+    #joyWrap::before { content:''; position:absolute; width:100%; height:1px; background:rgba(0, 243, 255, 0.1); }
+    #joyWrap::after { content:''; position:absolute; width:1px; height:100%; background:rgba(0, 243, 255, 0.1); }
+
+    /* [關鍵修正] 讓 Canvas 忽略瀏覽器的捲動手勢 */
+    #joy {
+      touch-action: none; /* 禁止觸控捲動 */
+      cursor: crosshair;
+    }
+
+    /* --- Log --- */
+    #log {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid #334155;
+      height: 200px;
+      overflow-y: auto;
+      background: #000;
+      color: var(--success);
+      font-family: var(--font-tech);
+      font-size: 12px;
+      border-radius: 4px;
+    }
+    #log div { border-bottom: 1px solid rgba(0, 255, 157, 0.1); padding: 2px 0; }
+    #log::-webkit-scrollbar { width: 8px; }
+    #log::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+    /* --- 狀態顯示 --- */
+    .status-panel {
+      font-family: var(--font-tech);
+      background: rgba(0,0,0,0.4);
+      padding: 10px;
+      border-radius: 4px;
+      border-left: 2px solid var(--text-muted);
+      margin-top: 10px;
+    }
+    .data-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px; }
+    .val { color: var(--primary); }
+    
+    .pill { padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+    .pill.on { background: rgba(16, 185, 129, 0.2); color: var(--success); border: 1px solid var(--success); }
+    .pill.off { background: rgba(239, 68, 68, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+
+    .flex-row { display: flex; gap: 8px; align-items: flex-end; }
+    .flex-col { display: flex; flex-direction: column; gap: 8px; }
+    .mt-4 { margin-top: 16px; }
+    
+  </style>
+</head>
+<body>
+
+  <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h1>SYSTEM /// RPi_CONTROL</h1>
+    <div style="font-family: var(--font-tech); color: var(--success); font-size: 12px;">SYSTEM STATUS: ONLINE</div>
+  </header>
+
+  <div class="grid-container">
+    
+    <div class="flex-col">
+      <section class="card">
+        <h2>NETWORK BRIDGE (MQTT/WS)</h2>
+        <div class="flex-row">
+          <div style="flex:2">
+            <label>HOST IP (RPi IP)</label>
+            <input id="host" value="192.168.0.169">
+          </div>
+          <div style="flex:1">
+            <label>PORT</label>
+            <input id="port" value="8081">
+          </div>
+          <button id="connectBtn">LINK START</button>
+        </div>
+        
+        <div class="mt-4 flex-row">
+          <div style="flex:1">
+            <label>SUB TOPIC</label>
+            <input id="subTopic" value="robot/motor_pwm">
+          </div>
+          <button id="subBtn">SUB</button>
+        </div>
+
+        <div class="mt-4">
+           <label>PUB TOPIC / PAYLOAD</label>
+           <div class="flex-row">
+             <input id="pubTopic" value="robot/motor_pwm" style="width: 40%">
+             <input id="pubPayload" value="Hello RPi">
+             <button id="pubBtn">SEND</button>
+           </div>
+        </div>
+      </section>
+
+      <section class="card" style="text-align: center;">
+        <h2>MANUAL OVERRIDE</h2>
+        <div class="joy-container">
+          <div id="joyWrap"><canvas id="joy"></canvas></div>
+          <div style="color:var(--text-muted); font-size:10px; font-family:var(--font-tech);">[DRAG TO MOVE]</div>
+        </div>
+        <div class="status-panel" style="text-align: left;">
+          <div class="data-row"><span>MOTOR L/R</span> <span class="val" id="dispLR">0 / 0</span></div>
+          <div class="data-row"><span>VECTOR (v/ω)</span> <span class="val" id="dispVec">0.00 / 0.00</span></div>
+          <div class="data-row"><span>VACUUM</span> <span id="vacState" class="pill off">OFF</span></div>
+          <div class="data-row"><span>LINK</span> <span id="joyWsState" style="color:#666">OFFLINE</span></div>
+        </div>
+        <div class="flex-row mt-4" style="justify-content: space-between;">
+           <div style="text-align:left"><label>MAX PWM</label><input id="maxPwm" type="number" value="255" style="width:70px"></div>
+           <div style="text-align:left"><label>UPDATE(HZ)</label><input id="hz" type="number" value="25" style="width:70px"></div>
+           <button id="btnStop" class="danger" style="height: 38px; align-self: flex-end;">EMERGENCY STOP</button>
+        </div>
+        <div style="display:none">
+          <input id="joyTopic" value="robot/motor_pwm"><input id="deadzone" type="number" value="0.08">
+        </div>
+        <div class="mt-4" style="border-top: 1px solid #334155; padding-top: 16px;">
+          <label style="margin-bottom:8px;">VACUUM MODULE</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <button id="vacOnBtn">ACTIVATE</button>
+            <button id="vacOffBtn">DEACTIVATE</button>
+            <button id="vacToggleBtn">TOGGLE</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="flex-col">
+      <section class="card" style="padding: 0; border: none;">
+        <div id="videoBox">
+          <div class="video-msg">NO SIGNAL<br><span style="font-size:12px; color:#444">(Waiting for connection...)</span></div>
+          <img id="streamImg" src="" style="display:none" onload="this.style.display='block'" onerror="this.style.display='none'">
+          <div class="hud-overlay"></div>
+          <div class="rec-badge"><div class="rec-dot"></div> LIVE FEED</div>
+          <div class="cam-info">CAM_01 // 720p // 30FPS</div>
+        </div>
+      </section>
+
+      <section class="card" style="flex:1; display:flex; flex-direction:column;">
+        <h2>SYSTEM LOGS</h2>
+        <div id="log"><div>System initialized...</div></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const VIDEO_PORT = '8080'; 
+    let ws = null;
+    const log = (s) => { const d=document.getElementById('log'); d.innerHTML+=`<div><span style="color:#666">[${new Date().toLocaleTimeString()}]</span> ${s}</div>`; d.scrollTop=d.scrollHeight; };
+    const enableControls = on => {
+      ['subBtn','pubBtn','btnStop','vacOnBtn','vacOffBtn','vacToggleBtn'].forEach(id=>{ const e=document.getElementById(id); if(e)e.disabled=!on; });
+      const st = document.getElementById('joyWsState'); st.textContent=on?'CONNECTED':'OFFLINE'; st.style.color=on?'var(--success)':'#666';
+    };
+
+    document.getElementById('connectBtn').onclick = () => {
+      const h = document.getElementById('host').value.trim();
+      const p = document.getElementById('port').value.trim();
+      if(!h || !p) return log('Error: Invalid Host/Port');
+
+      // WebSocket
+      const url = `ws://${h}:${p}`;
+      if(ws) ws.close();
+      ws = new WebSocket(url);
+      ws.onopen  = () => { log(`✅ WS LINKED: ${url}`); enableControls(true); };
+      ws.onclose = () => { log(`❌ WS CLOSED`); enableControls(false); };
+      ws.onerror = () => { log(`⚠️ WS ERROR`); };
+      ws.onmessage = (ev) => {
+        try { const obj=JSON.parse(ev.data); if(obj.type==='msg') log(`IN <span style="color:var(--primary)">[${obj.topic}]</span> ${obj.payload}`); }
+        catch { log(`(raw) ${ev.data}`); }
+      };
+
+      // Video Stream
+      const img = document.getElementById('streamImg');
+      const streamUrl = `http://${h}:${VIDEO_PORT}/?action=stream&t=${Date.now()}`;
+      img.src = streamUrl;
+      log(`📷 REQUEST VIDEO: ${streamUrl}`);
+    };
+
+    // 其他 MQTT 功能
+    document.getElementById('subBtn').onclick = () => {
+      if(!ws||ws.readyState!==1)return log('⚠️ Not Connected');
+      const topic=document.getElementById('subTopic').value.trim(); ws.send(JSON.stringify({type:'sub',topic})); log(`REQ SUB: ${topic}`);
+    };
+    document.getElementById('pubBtn').onclick = () => {
+      if(!ws||ws.readyState!==1)return log('⚠️ Not Connected');
+      const topic=document.getElementById('pubTopic').value.trim(); const payload=document.getElementById('pubPayload').value;
+      ws.send(JSON.stringify({type:'pub',topic,payload})); log(`OUT [${topic}]: ${payload}`);
+    };
+    enableControls(false);
+
+    // Joystick
+    const joy=document.getElementById('joy'); const ctx=joy.getContext('2d');
+    const rootStyle=getComputedStyle(document.documentElement);
+    const cssJoySize=parseInt(rootStyle.getPropertyValue('--joy-size'))||320;
+    const cssJoyPad=parseInt(rootStyle.getPropertyValue('--joy-pad'))||30;
+    const dpr=window.devicePixelRatio||1;
+    joy.width=Math.round(cssJoySize*dpr); joy.height=Math.round(cssJoySize*dpr);
+    joy.style.width=cssJoySize+"px"; joy.style.height=cssJoySize+"px";
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    const geom=()=>({cx:cssJoySize/2, cy:cssJoySize/2, r:cssJoySize/2-cssJoyPad});
+    
+    let joyActive=false, joyVec={x:0,y:0}, sendTimer=null, vacOn=false;
+    const vacPill=document.getElementById('vacState');
+    const renderVac=()=>{ vacPill.textContent=vacOn?'ACTIVE':'STANDBY'; vacPill.className=vacOn?'pill on':'pill off';
+      document.getElementById('vacOnBtn').classList.toggle('toggle-on',vacOn);
+      document.getElementById('vacOffBtn').classList.toggle('toggle-on',!vacOn);
+    };
+
+    const drawJoy=()=>{
+      const {cx,cy,r}=geom(); ctx.clearRect(0,0,cssJoySize,cssJoySize);
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.strokeStyle='rgba(0,243,255,0.3)'; ctx.lineWidth=2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx,cy,r*0.5,0,Math.PI*2); ctx.strokeStyle='rgba(0,243,255,0.1)'; ctx.lineWidth=1; ctx.stroke();
+      const knobR=24, kx=cx+joyVec.x*r, ky=cy-joyVec.y*r;
+      ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(kx,ky); ctx.strokeStyle='rgba(0,243,255,0.5)'; ctx.stroke();
+      ctx.beginPath(); ctx.arc(kx,ky,knobR,0,Math.PI*2); ctx.fillStyle='rgba(0,243,255,0.2)'; ctx.fill(); ctx.strokeStyle='#00f3ff'; ctx.lineWidth=2; ctx.stroke();
+      ctx.beginPath(); ctx.arc(kx,ky,4,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+    };
+
+    const shape=(s,dz=0.08)=>{ if(Math.abs(s)<dz)return 0; const t=(Math.abs(s)-dz)/(1-dz); return Math.sign(s)*t*t; };
+    const vecToLR=(v,w,maxPWM)=>{ let L=v-w,R=v+w; const m=Math.max(1,Math.abs(L),Math.abs(R)); L/=m; R/=m; return {L:Math.round(L*maxPWM),R:Math.round(R*maxPWM)}; };
+    
+    let lastLR={L:0,R:0};
+    const sendOnce=()=>{
+      const topic=document.getElementById('joyTopic').value.trim();
+      const maxPWM=parseInt(document.getElementById('maxPwm').value||'255');
+      const dz=parseFloat(document.getElementById('deadzone').value||'0.08');
+      const v=shape(joyVec.y,dz), w=shape(joyVec.x,dz);
+      const {L,R}=vecToLR(v,w,maxPWM); lastLR={L,R};
+      document.getElementById('dispLR').innerText=`${L} / ${R}`; document.getElementById('dispVec').innerText=`${v.toFixed(2)} / ${w.toFixed(2)}`;
+      if(!ws||ws.readyState!==1)return;
+      ws.send(JSON.stringify({type:'pub',topic,payload:JSON.stringify({L,R,vacuum:vacOn})}));
+    };
+
+    const startSend=()=>{ const hz=Math.max(1,parseInt(document.getElementById('hz').value||'25')); sendTimer=setInterval(sendOnce,1000/hz); };
+    const stopSend=()=>{ clearInterval(sendTimer); sendTimer=null; };
+    const setVec=(x,y)=>{
+      const rect=joy.getBoundingClientRect(); const {r}=geom();
+      const cx=rect.left+cssJoySize/2, cy=rect.top+cssJoySize/2;
+      let nx=(x-cx)/r, ny=-(y-cy)/r; const mag=Math.hypot(nx,ny); if(mag>1){nx/=mag;ny/=mag;}
+      joyVec={x:nx,y:ny}; drawJoy();
+    };
+
+    // [修正] 加入 e.preventDefault() 防止觸控時捲動頁面
+    joy.addEventListener('pointerdown',e=>{
+      e.preventDefault(); // 阻止預設行為 (捲動)
+      joy.setPointerCapture(e.pointerId);
+      joyActive=true;
+      setVec(e.clientX,e.clientY);
+      startSend();
+    });
+    joy.addEventListener('pointermove',e=>{
+      if(joyActive) {
+        e.preventDefault(); 
+        setVec(e.clientX,e.clientY);
+      }
+    });
+    const release=()=>{joyActive=false;joyVec={x:0,y:0};drawJoy();sendOnce();stopSend();};
+    joy.addEventListener('pointerup',release); joy.addEventListener('pointercancel',release); joy.addEventListener('pointerleave',release);
+    document.getElementById('btnStop').onclick=()=>{joyVec={x:0,y:0};drawJoy();sendOnce();log('⚠️ STOP');};
+
+    const pubVac=()=>{
+      if(!ws||ws.readyState!==1)return log('⚠️ Connect first');
+      const topic=document.getElementById('joyTopic').value.trim();
+      ws.send(JSON.stringify({type:'pub',topic,payload:JSON.stringify({L:lastLR.L,R:lastLR.R,vacuum:vacOn})}));
+      log(`VACUUM → ${vacOn?'ON':'OFF'}`);
+    };
+    document.getElementById('vacOnBtn').onclick=()=>{vacOn=true;renderVac();pubVac();};
+    document.getElementById('vacOffBtn').onclick=()=>{vacOn=false;renderVac();pubVac();};
+    document.getElementById('vacToggleBtn').onclick=()=>{vacOn=!vacOn;renderVac();pubVac();};
+    window.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='v'){vacOn=!vacOn;renderVac();pubVac();}});
+
+    drawJoy(); renderVac();
+    setInterval(()=>{ 
+      const isCon=ws&&ws.readyState===1; 
+      const el=document.getElementById('joyWsState'); 
+      el.textContent=isCon?'CONNECTED':'OFFLINE'; el.style.color=isCon?'var(--success)':'#666';
+    },1000);
+  </script>
+</body>
+</html>
